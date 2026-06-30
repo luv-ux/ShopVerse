@@ -1,0 +1,58 @@
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useAuth } from '../context/AuthContext';
+const API = 'http://localhost:5000/api';
+
+export default function Checkout() {
+  const [address, setAddress] = useState({ line1: '', city: '', state: '', pincode: '' });
+  const [loading, setLoading] = useState(false);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const cart = JSON.parse(localStorage.getItem('sv_cart') || '[]');
+  const total = cart.reduce((s, i) => s + i.price * i.quantity, 0);
+
+  const placeOrder = async (e) => {
+    e.preventDefault();
+    if (!user) { alert('Please login first'); navigate('/login'); return; }
+    setLoading(true);
+    try {
+      await axios.post(`${API}/orders`, { buyerId: user.id, items: cart, address });
+      localStorage.removeItem('sv_cart');
+      navigate('/orders');
+    } catch { alert('Order failed. Please try again.'); }
+    setLoading(false);
+  };
+
+  return (
+    <div className="container py-4" style={{ maxWidth: 500 }}>
+      <h2 className="mb-4">Checkout</h2>
+      <div className="card p-4 mb-3">
+        <h6>Order Summary</h6>
+        {cart.map(i => (
+          <div key={i.id} className="d-flex justify-content-between py-1 border-bottom">
+            <span>{i.title} x {i.quantity}</span>
+            <span>Rs.{(i.price * i.quantity).toLocaleString()}</span>
+          </div>
+        ))}
+        <div className="d-flex justify-content-between pt-2 fw-bold">
+          <span>Total</span><span className="text-primary">Rs.{total.toLocaleString()}</span>
+        </div>
+      </div>
+      <div className="card p-4">
+        <h6 className="mb-3">Shipping Address</h6>
+        <form onSubmit={placeOrder}>
+          {[['line1', 'Address Line'], ['city', 'City'], ['state', 'State'], ['pincode', 'Pincode']].map(([k, l]) => (
+            <div className="mb-3" key={k}>
+              <label className="form-label">{l}</label>
+              <input className="form-control" required value={address[k]} onChange={e => setAddress({ ...address, [k]: e.target.value })} />
+            </div>
+          ))}
+          <button type="submit" className="btn btn-primary w-100" disabled={loading}>
+            {loading ? 'Placing order...' : 'Place Order'}
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
